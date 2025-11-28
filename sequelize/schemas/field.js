@@ -7,6 +7,10 @@ const Field = sequelize.define("field", {
         autoIncrement: true,
         allowNull: false
     },
+    name: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
     latetude: {
         type: DataTypes.ARRAY(DataTypes.FLOAT),
         allowNull: false
