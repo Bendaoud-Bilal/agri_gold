@@ -6,8 +6,8 @@ import dotenv from "dotenv";
 import main from "../utils/gemini.js";
 dotenv.config();
 const router = Router();
-router.use(verifyjwt);
-router.post("/field/add", async (request, response) => {
+// Removed global middleware - apply per route instead
+router.post("/field/add", verifyjwt, async (request, response) => {
     try {
         const userId = request.userid;
         const { name, latetude, longitude, area } = request.body;
@@ -23,7 +23,7 @@ router.post("/field/add", async (request, response) => {
         response.status(400).json({ error: error.message });
     }
 });
-router.get("/field/analyse/:id", async (request, response) => {
+router.get("/field/analyse/:id", verifyjwt, async (request, response) => {
     try {
         const userId = request.userid;
         const fieldId = request.params.id;
@@ -110,49 +110,7 @@ router.get("/field/analyse/:id", async (request, response) => {
         response.status(400).json({ error: error.message });
     }
 });
-router.get("/field/analyse/whether/:id", async (request, response) => {
-    try {
-        const userId = request.userid;
-        const fieldId = request.params.id;
-        const field = await Field.findOne({ where: { id_field: fieldId, id_user: userId } });
-        if (!field) {
-            return response.status(404).json({ error: "Field not found" });
-        }
-        const latitudes = field.latetude;
-        const longitudes = field.longitude;
-        if (!latitudes || latitudes.length === 0 || !longitudes || longitudes.length === 0) {
-            return response.status(400).json({ error: "Field coordinates are missing or invalid" });
-        }
-        const latSum = latitudes.reduce((a, b) => a + b, 0);
-        const lonSum = longitudes.reduce((a, b) => a + b, 0);
-        const latAvg = latSum / latitudes.length;
-        const lonAvg = lonSum / longitudes.length;
-        const url = `https://api.openweathermap.org/data/2.5/weather?lat=${latAvg}&lon=${lonAvg}&appid=${process.env.OpenWhether}&units=metric`;
-        const res = await fetch(url);
-        if (!res.ok) {
-            return response.status(500).json({ error: "Failed to fetch weather data from external API" });
-        }
-        const data = await res.json();
-        response.json({
-            field_id: field.id_field,
-            field_name: field.name,
-            coordinates: {
-                center_latitude: latAvg,
-                center_longitude: lonAvg
-            },
-            weather: {
-                temperature: data.main.temp,
-                humidity: data.main.humidity,
-                weather_description: data.weather[0].description,
-                wind_speed: data.wind.speed
-            }
-        });
-    } catch (error) {
-        response.status(400).json({ error: error.message });
-    }
-});
-
-router.get("/field", async (request, response) => {
+router.get("/field", verifyjwt, async (request, response) => {
     try {
         const userId = request.userid;
         const fields = await Field.findAll({ where: { id_user: userId } });
@@ -161,7 +119,7 @@ router.get("/field", async (request, response) => {
         response.status(400).json({ error: error.message });
     }
 });
-router.get("/field/:id", async (request, response) => {
+router.get("/field/:id", verifyjwt, async (request, response) => {
     try {
         const userId = request.userid;
         const fieldId = request.params.id;
@@ -183,7 +141,7 @@ router.get("/field/:id", async (request, response) => {
         response.status(400).json({ error: error.message });
     }
 });
-router.patch("/field/:id", async (request, response) => {
+router.patch("/field/:id", verifyjwt, async (request, response) => {
     try {
         const userId = request.userid;
         const fieldId = request.params.id;
@@ -201,7 +159,7 @@ router.patch("/field/:id", async (request, response) => {
         response.status(400).json({ error: error.message });
     }
 });
-router.delete("/field/:id", async (request, response) => {
+router.delete("/field/:id", verifyjwt, async (request, response) => {
     try {
         const userId = request.userid;
         const fieldId = request.params.id;

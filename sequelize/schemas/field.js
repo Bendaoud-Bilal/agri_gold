@@ -19,7 +19,7 @@ const Field = sequelize.define("field", {
         type: DataTypes.ARRAY(DataTypes.FLOAT),
         allowNull: false
     },
-    area: {
+     area: {
         type: DataTypes.FLOAT,
         allowNull: false
     },
