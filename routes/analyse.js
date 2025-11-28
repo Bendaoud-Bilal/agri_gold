@@ -232,12 +232,21 @@ router.get("/field/fullanalyse/:id", async (request, response) => {
         const lonSum = longitudes.reduce((a, b) => a + b, 0);
         const latAvg = latSum / latitudes.length;
         const lonAvg = lonSum / longitudes.length;
-        const stateurl = `https://nominatim.openstreetmap.org/reverse?lat=${latAvg}&lon=${lonAvg}&format=json`;
-        const stateRes = await fetch(stateurl);
+        const stateUrl = `https://nominatim.openstreetmap.org/reverse?lat=${latAvg}&lon=${lonAvg}&format=json`;
+
+        const stateRes = await fetch(stateUrl, {
+            headers: {
+                "User-Agent": "MyApp/1.0 (takizia36@gmail.com)", // REQUIRED
+                "Accept-Language": "en"
+            }
+        });
+
         console.log(stateRes);
 
         if (!stateRes.ok) {
-            return response.status(500).json({ error: "Failed to fetch location data from external API" });
+            return response.status(500).json({
+                error: "Failed to fetch location data from external API"
+            });
         }
         const stateData = await stateRes.json();
         const state = stateData.address.state || "Unknown";
