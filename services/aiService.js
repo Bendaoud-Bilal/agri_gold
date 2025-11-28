@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const hf = new HfInference(process.env.HUGGING_FACE_API_KEY);
+const HF_MODEL_ID = process.env.HUGGING_FACE_MODEL_ID || 'google/gemma-2-9b-it';
 
 // System prompt for AgriBot
 const SYSTEM_PROMPT = `You are AgriBot, an agricultural consultant assistant for Algerian farmers.
@@ -27,8 +28,7 @@ const SYSTEM_PROMPT = `You are AgriBot, an agricultural consultant assistant for
 - Be friendly and supportive
 - Use "you" (rak/راك for Darja) when appropriate
 - Avoid excessive technical jargon
-- Always include practical next steps
-- If user asks in Darja/Arabic, respond in the same language`;
+- Always include practical next steps`;
 
 /**
  * Generate chatbot response using Hugging Face API
@@ -47,10 +47,15 @@ export async function generateResponse(userMessage, context = {}) {
 
         // Build the prompt
         const prompt = buildPrompt(userMessage, userContext, searchResults, intent);
+        const languageCode = detectLanguage(userMessage, userContext.preferred_language);
+        const systemContent = buildSystemMessage({
+            basePrompt: SYSTEM_PROMPT,
+            languageCode,
+            historyDigest: userContext.historyDigest
+        });
 
-        // Prepare conversation history
         const messages = [
-            { role: "system", content: SYSTEM_PROMPT },
+            { role: "system", content: systemContent },
             ...conversationHistory.map(msg => ({
                 role: msg.sender_type === 'user' ? 'user' : 'assistant',
                 content: msg.message_text
@@ -58,19 +63,19 @@ export async function generateResponse(userMessage, context = {}) {
             { role: "user", content: prompt }
         ];
 
-        // Call Hugging Face Chat Completion API
+        // Call Hugging Face chat completion API
         const startTime = Date.now();
 
         const response = await hf.chatCompletion({
-            model: "mistralai/Mistral-7B-Instruct-v0.3",
-            messages: messages,
+            model: HF_MODEL_ID,
+            messages,
             max_tokens: 500,
             temperature: 0.7,
             top_p: 0.95
         });
 
         const responseTime = Date.now() - startTime;
-        const botResponse = response.choices[0].message.content;
+        const botResponse = response.choices[0].message.content.trim();
 
         // Extract token usage if available
         const tokensUsed = response.usage?.total_tokens || estimateTokens(messages);
@@ -170,6 +175,56 @@ function estimateTokens(messages) {
     const text = messages.map(m => m.content || '').join(' ');
     // Rough estimation: 1 token ≈ 4 characters
     return Math.ceil(text.length / 4);
+}
+
+function buildSystemMessage({ basePrompt, languageCode, historyDigest }) {
+    const sections = [basePrompt];
+
+    const languageInstruction = getLanguageInstruction(languageCode);
+    if (languageInstruction) {
+        sections.push(languageInstruction);
+    }
+
+    if (historyDigest) {
+        sections.push(`Farmer History Snapshot:\n${historyDigest}`);
+    }
+
+    sections.push('Never mix languages within a single reply unless the farmer explicitly does so.');
+
+    return sections.join('\n\n');
+}
+
+function detectLanguage(message = '', fallback = 'darja') {
+    if (!message || typeof message !== 'string') {
+        return fallback || 'darja';
+    }
+
+    if (/[\u0600-\u06FF]/.test(message)) {
+        return 'arabic';
+    }
+
+    if (/[àâçéèêëîïôûùüÿñæœ]/i.test(message) || /(bonjour|prix|météo|pluie|sol)/i.test(message)) {
+        return 'french';
+    }
+
+    if (/[a-z]/i.test(message)) {
+        return 'english';
+    }
+
+    return fallback || 'darja';
+}
+
+function getLanguageInstruction(code) {
+    switch (code) {
+        case 'arabic':
+            return 'Detected farmer language: Algerian Darja/Arabic. Reply entirely in Darja/Arabic (use informal tone such as "rak") unless the farmer switches languages.';
+        case 'french':
+            return 'Detected farmer language: French. Respond fully in French with farmer-friendly vocabulary.';
+        case 'english':
+            return 'Detected farmer language: English. Respond concisely in English, keep references localized to Algeria, and always use metric units.';
+        default:
+            return 'Match the farmer\'s language in every reply. If unsure, default to Algerian Darja.';
+    }
 }
 
 /**

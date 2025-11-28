@@ -4,8 +4,8 @@ import { Field } from "../sequelize/relation.js";
 import fetch from "node-fetch";
 
 const router = Router();
-router.use(verifyjwt);
-router.post("/field/add", async (request, response) => {
+// Removed global middleware - apply per route instead
+router.post("/field/add", verifyjwt, async (request, response) => {
     try {
         const userId = request.userid;
         const { name, latetude, longitude } = request.body;
@@ -20,7 +20,7 @@ router.post("/field/add", async (request, response) => {
         response.status(400).json({ error: error.message });
     }
 });
-router.get("/field/analyse/:id", async (request, response) => {
+router.get("/field/analyse/:id", verifyjwt, async (request, response) => {
     try {
         const userId = request.userid;
         const fieldId = request.params.id;
@@ -108,7 +108,7 @@ router.get("/field/analyse/:id", async (request, response) => {
         response.status(400).json({ error: error.message });
     }
 });
-router.get("/field", async (request, response) => {
+router.get("/field", verifyjwt, async (request, response) => {
     try {
         const userId = request.userid;
         const fields = await Field.findAll({ where: { id_user: userId } });
@@ -117,7 +117,7 @@ router.get("/field", async (request, response) => {
         response.status(400).json({ error: error.message });
     }
 });
-router.get("/field/:id", async (request, response) => {
+router.get("/field/:id", verifyjwt, async (request, response) => {
     try {
         const userId = request.userid;
         const fieldId = request.params.id;
@@ -130,7 +130,7 @@ router.get("/field/:id", async (request, response) => {
         response.status(400).json({ error: error.message });
     }
 });
-router.patch("/field/:id", async (request, response) => {
+router.patch("/field/:id", verifyjwt, async (request, response) => {
     try {
         const userId = request.userid;
         const fieldId = request.params.id;
@@ -148,7 +148,7 @@ router.patch("/field/:id", async (request, response) => {
         response.status(400).json({ error: error.message });
     }
 });
-router.delete("/field/:id", async (request, response) => {
+router.delete("/field/:id", verifyjwt, async (request, response) => {
     try {
         const userId = request.userid;
         const fieldId = request.params.id;

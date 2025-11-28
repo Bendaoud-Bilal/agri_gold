@@ -15,6 +15,8 @@ export async function buildUserContext(userId) {
 
         // If cache is fresh (< 24 hours), return it
         if (cachedContext && isCacheFresh(cachedContext.last_updated)) {
+            const cachedHistory = cachedContext.recent_crops || [];
+            const cachedDigest = buildHistoryDigest(cachedHistory, cachedContext.avg_soil_metrics || {});
             return {
                 soilProfile: cachedContext.avg_soil_metrics || {},
                 cropHistory: cachedContext.recent_crops || [],
@@ -23,6 +25,7 @@ export async function buildUserContext(userId) {
                 preferred_language: cachedContext.preferred_language || 'darja',
                 uses_voice: cachedContext.uses_voice,
                 totalPredictions: (cachedContext.recent_crops || []).length,
+                historyDigest: cachedDigest,
                 cached: true
             };
         }
@@ -32,6 +35,7 @@ export async function buildUserContext(userId) {
             SELECT 
                 phi.nitrogen, phi.phosphorus, phi.potassium, phi.temperature,
                 phi.humidity, phi.ph, phi.rainfall, phi.state, phi.season, phi.created_at,
+                phi.area_hectares, phi.fertilizer, phi.pesticide, phi.annual_rainfall, phi.crop_year,
                 pho.best_crop, pho.predicted_yield, pho.unit, pho.region, 
                 pho.total_revenue, pho.currency
             FROM predict_history_inputs phi
@@ -74,12 +78,30 @@ export async function buildUserContext(userId) {
             revenue: p.total_revenue,
             currency: p.currency || 'DZD',
             region: p.region,
-            date: p.created_at
+            date: p.created_at,
+            state: p.state,
+            season: p.season,
+            inputs: {
+                nitrogen: p.nitrogen,
+                phosphorus: p.phosphorus,
+                potassium: p.potassium,
+                temperature: p.temperature,
+                humidity: p.humidity,
+                ph: p.ph,
+                rainfall: p.rainfall,
+                annual_rainfall: p.annual_rainfall,
+                fertilizer: p.fertilizer,
+                pesticide: p.pesticide,
+                area_hectares: p.area_hectares,
+                crop_year: p.crop_year
+            }
         }));
 
         // 5. Extract preferences
         const common_state = mode(recentPredictions.map(p => p.state));
         const preferred_season = mode(recentPredictions.map(p => p.season));
+
+        const historyDigest = buildHistoryDigest(cropHistory, soilProfile);
 
         const context = {
             soilProfile,
@@ -87,6 +109,7 @@ export async function buildUserContext(userId) {
             userRegion: common_state || 'Algeria',
             preferred_season,
             totalPredictions: recentPredictions.length,
+            historyDigest,
             cached: false
         };
 
@@ -104,6 +127,7 @@ export async function buildUserContext(userId) {
             cropHistory: [],
             userRegion: 'Algeria',
             totalPredictions: 0,
+            historyDigest: '',
             error: error.message
         };
     }
@@ -149,6 +173,103 @@ export function formatContextForPrompt(context) {
     }
 
     return summary;
+}
+
+function buildHistoryDigest(records = [], soilProfile = {}) {
+    if (!records.length) {
+        return '';
+    }
+
+    const latestRecords = records.slice(0, 3);
+    const latestSection = latestRecords.map((rec, idx) => formatRecentRecord(rec, idx)).join('\n');
+
+    const aggregateSection = buildAggregateSummary(records.slice(3));
+    const soilLine = formatSoilSummary(soilProfile);
+
+    return [
+        latestSection ? `Recent Predictions:\n${latestSection}` : '',
+        aggregateSection,
+        soilLine
+    ].filter(Boolean).join('\n\n');
+}
+
+function formatRecentRecord(rec, idx) {
+    const date = formatDate(rec.date);
+    const locale = rec.region || rec.state || 'Algeria';
+    const yieldText = rec.yield != null ? `${round(rec.yield)} ${rec.unit || 't/ha'}` : 'n/a';
+    const inputs = formatInputMetrics(rec.inputs);
+    return `${idx + 1}. ${date} · ${locale} · ${rec.crop || 'Unknown'} → ${yieldText}${inputs ? ` | Inputs: ${inputs}` : ''}`;
+}
+
+function buildAggregateSummary(records = []) {
+    if (!records.length) {
+        return '';
+    }
+
+    const cropStats = records.reduce((acc, rec) => {
+        if (!rec.crop) return acc;
+        const key = rec.crop;
+        if (!acc[key]) {
+            acc[key] = { count: 0, totalYield: 0 };
+        }
+        acc[key].count += 1;
+        if (typeof rec.yield === 'number') {
+            acc[key].totalYield += rec.yield;
+        }
+        return acc;
+    }, {});
+
+    const topCrops = Object.entries(cropStats)
+        .sort((a, b) => b[1].count - a[1].count)
+        .slice(0, 3)
+        .map(([crop, stat]) => {
+            const avgYield = stat.count && stat.totalYield ? round(stat.totalYield / stat.count) : null;
+            return `${crop}: ${avgYield ? `${avgYield}` : 'n/a'} (${stat.count} runs)`;
+        })
+        .join(', ');
+
+    return topCrops ? `Historical Patterns: ${topCrops}` : '';
+}
+
+function formatSoilSummary(soilProfile = {}) {
+    if (!soilProfile || Object.keys(soilProfile).length === 0) {
+        return '';
+    }
+
+    const parts = [];
+    if (soilProfile.avg_nitrogen) parts.push(`N=${round(soilProfile.avg_nitrogen)}`);
+    if (soilProfile.avg_phosphorus) parts.push(`P=${round(soilProfile.avg_phosphorus)}`);
+    if (soilProfile.avg_potassium) parts.push(`K=${round(soilProfile.avg_potassium)}`);
+    if (soilProfile.avg_ph) parts.push(`pH=${soilProfile.avg_ph.toFixed(1)}`);
+    if (soilProfile.avg_rainfall) parts.push(`Rain=${round(soilProfile.avg_rainfall)}mm`);
+
+    return parts.length ? `Avg Soil: ${parts.join(', ')}` : '';
+}
+
+function formatInputMetrics(inputs = {}) {
+    if (!inputs) return '';
+    const parts = [];
+    if (isFinite(inputs.nitrogen)) parts.push(`N${round(inputs.nitrogen)}`);
+    if (isFinite(inputs.phosphorus)) parts.push(`P${round(inputs.phosphorus)}`);
+    if (isFinite(inputs.potassium)) parts.push(`K${round(inputs.potassium)}`);
+    if (isFinite(inputs.rainfall)) parts.push(`Rain ${round(inputs.rainfall)}mm`);
+    if (isFinite(inputs.temperature)) parts.push(`${round(inputs.temperature)}°C`);
+    if (isFinite(inputs.humidity)) parts.push(`${round(inputs.humidity)}%RH`);
+    if (isFinite(inputs.area_hectares)) parts.push(`${inputs.area_hectares}ha`);
+    return parts.join(', ');
+}
+
+function formatDate(value) {
+    if (!value) return 'Unknown date';
+    try {
+        return new Date(value).toISOString().split('T')[0];
+    } catch {
+        return String(value);
+    }
+}
+
+function round(value) {
+    return Math.round(Number(value) * 10) / 10;
 }
 
 // Helper functions

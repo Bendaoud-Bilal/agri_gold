@@ -3,8 +3,8 @@ import Field from "./schemas/field.js";
 import PredictHistoryInput from "./schemas/predict_history_input.js";
 import PredictHistoryOutput from "./schemas/predict_history_output.js";
 import Notification from "./schemas/notification.js";
-import ChatSession from "./schemas/chat_session.js";
-import ChatMessage from "./schemas/chat_message.js";
+import Chat from "./schemas/chat.js";
+import Message from "./schemas/message.js";
 import UserContextCache from "./schemas/user_context_cache.js";
 import SearchCache from "./schemas/search_cache.js";
 
@@ -30,13 +30,13 @@ Notification.belongsTo(User, { foreignKey: 'user_id' });
 PredictHistoryOutput.hasMany(Notification, { foreignKey: 'output_id', as: 'notifications' });
 Notification.belongsTo(PredictHistoryOutput, { foreignKey: 'output_id' });
 
-// User -> ChatSession (one-to-many)
-User.hasMany(ChatSession, { foreignKey: 'user_id', as: 'chatSessions' });
-ChatSession.belongsTo(User, { foreignKey: 'user_id' });
+// User -> Chat (one-to-one)
+User.hasOne(Chat, { foreignKey: 'user_id', as: 'chat' });
+Chat.belongsTo(User, { foreignKey: 'user_id' });
 
-// ChatSession -> ChatMessage (one-to-many)
-ChatSession.hasMany(ChatMessage, { foreignKey: 'session_id', as: 'messages' });
-ChatMessage.belongsTo(ChatSession, { foreignKey: 'session_id' });
+// Chat -> Message (one-to-many)
+Chat.hasMany(Message, { foreignKey: 'chat_id', as: 'messages' });
+Message.belongsTo(Chat, { foreignKey: 'chat_id' });
 
 // User -> UserContextCache (one-to-one)
 User.hasOne(UserContextCache, { foreignKey: 'user_id', as: 'contextCache' });
@@ -48,8 +48,8 @@ export {
     PredictHistoryInput,
     PredictHistoryOutput,
     Notification,
-    ChatSession,
-    ChatMessage,
+    Chat,
+    Message,
     UserContextCache,
     SearchCache
 };
