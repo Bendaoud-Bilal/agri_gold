@@ -7,7 +7,7 @@ router.use(verifyjwt);
 router.get("/prediction", async (request, response) => {
     try {
         const userId = request.userid;
-        const predictions = await Prediction.findAll({ where: { id_user: userId }, order: [['created_at', 'DESC']] });
+        const predictions = await Prediction.findAll({ where: { id_user: userId }, });
         response.json({ predictions: predictions });
     } catch (error) {
         response.status(400).json({ error: error.message });

@@ -198,7 +198,6 @@ router.get("/field/fullanalyse/:id", async (request, response) => {
                 "Accept-Language": "en"
             }
         });
-        console.log(stateRes);
         if (!stateRes.ok) {
             return response.status(500).json({
                 error: "Failed to fetch location data from external API"
