@@ -308,3 +308,49 @@ Body: `{ "user_id": 42 }`. Removes only the specified output row.
 ## Support
 
 Contact the AgriBot platform team for onboarding keys or troubleshooting.
+
+---
+
+## Export Endpoints
+
+Located under `/api/export` for quick data dumps of `predict_history_input`.
+
+### GET `/api/export/json`
+
+Returns every `predict_history_input` row ordered by `user_id` and `created_at` ascending.
+
+```
+curl http://localhost:3000/api/export/json
+```
+
+```json
+{
+  "success": true,
+  "count": 128,
+  "rows": [
+    {
+      "id": 1,
+      "user_id": 3,
+      "temperature": 19.1,
+      "humidity": 55,
+      "nitrogen": 1.2,
+      "phosphorus": 7.3,
+      "potassium": 60,
+      "ph": 7,
+      "rainfall": 10,
+      "state": "Algiers",
+      "season": "Winter",
+      "created_at": "2025-11-21T09:01:43.000Z"
+    }
+  ]
+}
+```
+
+### GET `/api/export/csv`
+
+Streams the same dataset as CSV with a header row.
+
+```
+curl -o predict_history_inputs.csv \
+  http://localhost:3000/api/export/csv
+```
