@@ -373,3 +373,46 @@ Same intelligence report rendered as PDF.
 curl -o predict_history_report.pdf \
   http://localhost:3000/api/export/pdf
 ```
+
+---
+
+## Notification Endpoints
+
+Neighbor alerts fire automatically after a prediction is generated. These routes let you
+inspect or manually retrigger notifications.
+
+### GET `/api/notifications`
+
+Requires bearer token. Returns the latest notifications for the authenticated user.
+
+```
+Authorization: Bearer <access token>
+curl -H "Authorization: Bearer $TOKEN" \
+  http://localhost:3000/api/notifications
+```
+
+### PATCH `/api/notifications/:id/read`
+
+Marks a specific notification as read.
+
+```
+curl -X PATCH -H "Authorization: Bearer $TOKEN" \
+  http://localhost:3000/api/notifications/123/read
+```
+
+### POST `/api/notifications/neighbor-alerts`
+
+Triggers the neighbor search manually (helpful for replays or admin tooling).
+
+Body:
+
+```json
+{
+  "prediction_id": 77,
+  "field_id": 12,
+  "radius_km": 5
+}
+```
+
+The endpoint responds with `{ "created": <count>, "neighbors": [userIds...] }` when
+new notifications are inserted.
