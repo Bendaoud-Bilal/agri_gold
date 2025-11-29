@@ -354,3 +354,22 @@ Streams the same dataset as CSV with a header row.
 curl -o predict_history_inputs.csv \
   http://localhost:3000/api/export/csv
 ```
+
+### GET `/api/export/docx`
+
+Generates a DOCX intelligence report for the full dataset. The backend aggregates the metrics,
+asks the HuggingFace model for structured insights, and streams the resulting `.docx` file.
+
+```
+curl -o predict_history_report.docx \
+  http://localhost:3000/api/export/docx
+```
+
+### GET `/api/export/pdf`
+
+Same intelligence report rendered as PDF.
+
+```
+curl -o predict_history_report.pdf \
+  http://localhost:3000/api/export/pdf
+```
