@@ -1,14 +1,14 @@
 import { Router } from "express";
 import verifyjwt from "../utils/jwt.js";
-import { Field, Prediction } from "../sequelize/relation.js";
+import { Field, Prediction, PredictHistoryInput, PredictHistoryOutput, } from "../sequelize/relation.js";
 import fetch from "node-fetch";
 import dotenv from "dotenv";
 import main from "../utils/gemini.js";
-import { createNeighborNotifications } from "../services/notificationService.js";
 dotenv.config();
 const router = Router();
+router.use(verifyjwt)
 // Removed global middleware - apply per route instead
-router.post("/field/add", verifyjwt, async (request, response) => {
+router.post("/field/add", async (request, response) => {
     try {
         const userId = request.userid;
         const { name, latetude, longitude, area } = request.body;
@@ -24,7 +24,7 @@ router.post("/field/add", verifyjwt, async (request, response) => {
         response.status(400).json({ error: error.message });
     }
 });
-router.get("/field/analyse/:id", verifyjwt, async (request, response) => {
+router.get("/field/analyse/:id", async (request, response) => {
     try {
         const userId = request.userid;
         const fieldId = request.params.id;
@@ -111,7 +111,7 @@ router.get("/field/analyse/:id", verifyjwt, async (request, response) => {
         response.status(400).json({ error: error.message });
     }
 });
-router.get("/field", verifyjwt, async (request, response) => {
+router.get("/field", async (request, response) => {
     try {
         const userId = request.userid;
         const fields = await Field.findAll({ where: { id_user: userId } });
@@ -120,7 +120,7 @@ router.get("/field", verifyjwt, async (request, response) => {
         response.status(400).json({ error: error.message });
     }
 });
-router.get("/field/:id", verifyjwt, async (request, response) => {
+router.get("/field/:id", async (request, response) => {
     try {
         const userId = request.userid;
         const fieldId = request.params.id;
@@ -142,7 +142,7 @@ router.get("/field/:id", verifyjwt, async (request, response) => {
         response.status(400).json({ error: error.message });
     }
 });
-router.patch("/field/:id", verifyjwt, async (request, response) => {
+router.patch("/field/:id", async (request, response) => {
     try {
         const userId = request.userid;
         const fieldId = request.params.id;
@@ -160,7 +160,7 @@ router.patch("/field/:id", verifyjwt, async (request, response) => {
         response.status(400).json({ error: error.message });
     }
 });
-router.delete("/field/:id", verifyjwt, async (request, response) => {
+router.delete("/field/:id", async (request, response) => {
     try {
         const userId = request.userid;
         const fieldId = request.params.id;
@@ -178,7 +178,7 @@ router.get("/field/fullanalyse/:id", async (request, response) => {
     try {
         const userId = request.userid;
         const fieldId = request.params.id;
-        const field = await Field.findOne({ where: { id_field: fieldId, /*id_user: userId*/ } });
+        const field = await Field.findOne({ where: { id_field: fieldId, id_user: userId } });
         if (!field) {
             return response.status(404).json({ error: "Field not found" });
         }
@@ -192,10 +192,9 @@ router.get("/field/fullanalyse/:id", async (request, response) => {
         const latAvg = latSum / latitudes.length;
         const lonAvg = lonSum / longitudes.length;
         const stateUrl = `https://nominatim.openstreetmap.org/reverse?lat=${latAvg}&lon=${lonAvg}&format=json`;
-
         const stateRes = await fetch(stateUrl, {
             headers: {
-                "User-Agent": "MyApp/1.0 (takizia36@gmail.com)", // REQUIRED
+                "User-Agent": "MyApp/1.0 (takizia36@gmail.com)",
                 "Accept-Language": "en"
             }
         });
@@ -282,7 +281,6 @@ router.get("/field/fullanalyse/:id", async (request, response) => {
         if (!analysisRes.ok) {
             return response.status(500).json({ error: "Failed to fetch crop analysis from external API" });
         }
-        const analysisData = await analysisRes.json();
         const mainData = {
             bestCrops: analysisData.alternative_crops,
             soil: analysisData.soil_parameters,
@@ -296,14 +294,6 @@ router.get("/field/fullanalyse/:id", async (request, response) => {
             aiExplain: text,
             id_user: userId
         });
-        try {
-            await createNeighborNotifications({
-                predictionId: prediction.id_prediction,
-                fieldId: field.id_field
-            });
-        } catch (notifyError) {
-            console.warn('Neighbor notification dispatch skipped:', notifyError.message);
-        }
         response.json({ prediction });
     } catch (error) {
         response.status(400).json({ error: error.message });

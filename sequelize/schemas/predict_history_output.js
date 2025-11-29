@@ -74,7 +74,7 @@ const PredictHistoryOutput = sequelize.define('PredictHistoryOutput', {
     currency: {
         type: DataTypes.STRING(3),
         allowNull: true,
-        defaultValue: 'DZD'
+        defaultValue: 'IND'
     },
     // Alternative crops (stored as JSON)
     alternative_crops: {

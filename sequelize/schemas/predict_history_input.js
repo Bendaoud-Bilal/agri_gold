@@ -73,6 +73,10 @@ const PredictHistoryInput = sequelize.define('PredictHistoryInput', {
     area_hectares: {
         type: DataTypes.FLOAT,
         allowNull: true
+    },
+    field_id: {
+        type: DataTypes.STRING,
+        allowNull: true
     }
 }, {
     timestamps: true,
